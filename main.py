@@ -5,7 +5,7 @@ class Gestor:
                        "a","b","c","d","e","f","g","h","i","j","k","l","m","n","ñ","o","p","q","r","s","t","u","v","w","x","y","z"]
         self.numeros = ['0','1','2','3','4','5','6','7','8','9']
         self.espacio = [' ']
-        self.simbolos = ['\n',';','+','-','*','/']
+        self.simbolos = ['\n',';','+','-','*','/','{','}','(',')','=']
         self.tokens = []
         self.afds = []
         self.errores = []
@@ -30,16 +30,159 @@ class Gestor:
             if contenido[self.iterador1] == "/":
                 self.AFDComenntario(contenido)
                 self.ADFComentarioMultilinea(contenido)
+            self.AFDIdentificador(contenido)
             self.ADFString(contenido)
             self.ADFIntFloat(contenido)
             self.AFDChar(contenido)
-            self.AFDBooleano(contenido)
+            self.AFDReservadas(contenido)
             #Avanzar
             self._avanzar(contenido)
 
+        self.iterador1 = 0
+        self.ADFLlaves(contenido)
+
         self._reportar()
-    
-    def AFDBooleano(self,contenido):
+
+    #EL AFD PARA ESTO ES ESPECIAL, PUES VUELVE A RECORRER TODO BUSCANDO CADA CARACTER
+    def ADFLlaves (self,contenido):
+        #Solo verifica 2 cosas: que el iterador este bien y que coincidan
+        Llaves = [
+            {'Columna': 0,
+            'Fila': 0,
+            'Lexema': '', 
+            'Token': 'llave_a',
+            'Patron': "{",
+            'Estados': ''},
+
+            {'Columna': 0,
+            'Fila': 0,
+            'Lexema': '', 
+            'Token': 'llave_c',
+            'Patron': "}",
+            'Estados': ''},
+
+            {'Columna': 0,
+            'Fila': 0,
+            'Lexema': '', 
+            'Token': 'parentesis_a',
+            'Patron': "(",
+            'Estados': ''},
+
+            {'Columna': 0,
+            'Fila': 0,
+            'Lexema': '', 
+            'Token': 'parentesis_b',
+            'Patron': ")",
+            'Estados': ''},
+
+            {'Columna': 0,
+            'Fila': 0,
+            'Lexema': '', 
+            'Token': 'corchetes_a',
+            'Patron': "[",
+            'Estados': ''},
+
+            {'Columna': 0,
+            'Fila': 0,
+            'Lexema': '', 
+            'Token': 'corchetes_c',
+            'Patron': "[",
+            'Estados': ''},
+
+            {'Columna': 0,
+            'Fila': 0,
+            'Lexema': '', 
+            'Token': 'asignacion',
+            'Patron': "=",
+            'Estados': ''},
+
+            {'Columna': 0,
+            'Fila': 0,
+            'Lexema': '', 
+            'Token': 'fin_instruccion',
+            'Patron': ";",
+            'Estados': ''},
+        ]
+        while self.iterador1 <= (len(contenido) -1):
+            for llave in Llaves:
+                if contenido[self.iterador1] == llave['Patron']:
+                    estados0 = []
+                    estado = {
+                        'Estado' : 'S0',
+                        'Caracter': contenido[self.iterador1],
+                        'Lexema Reconocido': '',
+                        'Siguiente estado':'S1'
+                    }
+                    estado1 = {
+                        'Estado' : 'S1',
+                        'Caracter': '#',
+                        'Lexema Reconocido': contenido[self.iterador1],
+                        'Siguiente estado':'S2(Aceptacion)'
+                    }
+                    estados0.append(estado)
+                    estados0.append(estado1)
+
+                    z = {'Columna': self.columna,
+                            'Fila': self.fila,    
+                            'Lexema': contenido[self.iterador1], 
+                            'Token': llave['Token'],
+                            'Patron': llave['Patron'],
+                            'Estados': estados0}
+                    self.tokens.append(z)
+
+            self._avanzar(contenido)
+                
+    #AUTOMATA PARA LOS IDENTIFICADORES
+    def AFDIdentificador(self, contenido):
+        #Como siempre, pregunta si el indice no se salio
+        if self.iterador1 <= (len(contenido)-1):
+        #pregunta si antes habia un simbolo o un espacio
+            if contenido[self.iterador1 - 1] == ' ':
+                #Si antes habia un espacio, pregunta si el actual es una letra o guion bajo
+                if (contenido[self.iterador1] == '_') or (contenido[self.iterador1] in self.letras):
+                    #Comienza a guardar 
+                    identificador = ""
+                    estados0 = []
+                    fila = self.fila
+                    columna = self.columna
+                    #Comienza arecorrer
+                    s = 0
+                    while(self.iterador1 <= (len(contenido)-1)):
+                        if (contenido[self.iterador1] == '_') or (contenido[self.iterador1] in self.letras) or (contenido[self.iterador1] in self.numeros):
+                            #Se crea el estado
+                            estado = {
+                                'Estado' : 'S' + str(s),
+                                'Caracter': contenido[self.iterador1],
+                                'Lexema Reconocido': identificador,
+                                'Siguiente estado':'S' + str(int(s)+1)
+                            }
+                            estados0.append(estado)
+                            s += 1
+                            identificador += contenido[self.iterador1]
+                            self._avanzar(contenido)
+                             
+                        else:
+                        #Ultimo estado antes del de aceptacion
+                            estadoA = {
+                                    'Estado' : 'S' + str(s),
+                                    'Caracter': '#',
+                                    'Lexema Reconocido': identificador,
+                                    'Siguiente estado':'S' + str(int(s)+1) + "(Aceptacion)"
+                                }
+                            
+                            estados0.append(estadoA)
+
+                            z = {'Columna': columna,
+                            'Fila': fila,    
+                            'Lexema': identificador, 
+                            'Token': 'Identificador',
+                            'Patron': "True",
+                            'Estados': estados0}
+                            self.tokens.append(z)
+                            break
+
+    #AUTOMATA PARA TODAS LAS PALABRAS RESERVADAS
+    def AFDReservadas(self,contenido):
         Diccionario = [
 
             #----------------------BOOLEANOS-----------------------
@@ -192,8 +335,55 @@ class Gestor:
             'Token': 'tipo_booleano',
             'Patron': "Boolean",
             'Estados': ''},
+        #--------------------- ESTRUCTURAS CONDICIONALES------------------------
+            {'Columna': 0,
+            'Fila': 0,
+            'Lexema': '', 
+            'Token': 'iterador_while',
+            'Patron': "While",
+            'Estados': ''},
 
+            {'Columna': 0,
+            'Fila': 0,
+            'Lexema': '', 
+            'Token': 'sentencia_do',
+            'Patron': "Do",
+            'Estados': ''},
 
+            {'Columna': 0,
+            'Fila': 0,
+            'Lexema': '', 
+            'Token': 'sentencia_if',
+            'Patron': "if",
+            'Estados': ''},
+
+            {'Columna': 0,
+            'Fila': 0,
+            'Lexema': '', 
+            'Token': 'sentencia_else',
+            'Patron': "else",
+            'Estados': ''},
+
+            {'Columna': 0,
+            'Fila': 0,
+            'Lexema': '', 
+            'Token': 'bucle_for',
+            'Patron': "for",
+            'Estados': ''},
+
+            {'Columna': 0,
+            'Fila': 0,
+            'Lexema': '', 
+            'Token': 'metodo',
+            'Patron': "void",
+            'Estados': ''},
+
+            {'Columna': 0,
+            'Fila': 0,
+            'Lexema': '', 
+            'Token': 'retorno',
+            'Patron': "return",
+            'Estados': ''},
 
         ]
         #Primero se ve que la palabra no este en otro caracter
@@ -272,13 +462,7 @@ class Gestor:
                                     b['Estados'] = estados0
                                     self.tokens.append(b)
                                     break
-
-
-
-
-
-
-            
+  
     #AUTOMATA DE CARACTERES
     def AFDChar(self, contenido):
         col = self.columna
@@ -594,6 +778,7 @@ class Gestor:
     def  _reportar(self):
         print ("REPORTE DE TOKENS")
         for lexema in self.tokens:
+            print(lexema['Token'])
             for estado in (lexema['Estados']):
                 print(estado)
         for error in self.errores:
